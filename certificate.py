@@ -8,6 +8,7 @@ from reportlab.pdfgen import canvas
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
+FIGURES_DIR = PROJECT_DIR / "figures"
 DEFAULT_GRADES_FILE = PROJECT_DIR / "grades.tsv"
 DEFAULT_OUTPUT_DIR = PROJECT_DIR / "certificates"
 MAX_POINTS = 30
@@ -233,14 +234,14 @@ def create_certificates(
 
         # Logos (placeholders – replace with your image paths)
         # logo_y = 100
-        c.drawImage(str(PROJECT_DIR / "ufz.png"), right_x + 90, -160, width=220, preserveAspectRatio=True, mask='auto')
-        c.drawImage(str(PROJECT_DIR / "nfdi.png"), right_x + 150, -90, width=140, preserveAspectRatio=True, mask='auto')
-        c.drawImage(str(PROJECT_DIR / "unileipzig.png"), right_x + 150, -350, width=150, preserveAspectRatio=True, mask='auto')
-        c.drawImage(str(PROJECT_DIR / "quality.png"), right_x + 180, -80, width=110, preserveAspectRatio=True, mask='auto')
+        c.drawImage(str(FIGURES_DIR / "ufz.png"), right_x + 90, -160, width=220, preserveAspectRatio=True, mask='auto')
+        c.drawImage(str(FIGURES_DIR / "nfdi.png"), right_x + 150, -90, width=140, preserveAspectRatio=True, mask='auto')
+        c.drawImage(str(FIGURES_DIR / "unileipzig.png"), right_x + 150, -350, width=150, preserveAspectRatio=True, mask='auto')
+        c.drawImage(str(FIGURES_DIR / "quality.png"), right_x + 180, -80, width=110, preserveAspectRatio=True, mask='auto')
         
 
         # Footer bar
-        c.drawImage(str(PROJECT_DIR / "footer_ufz.png"), left_x-10, -30, width=520, preserveAspectRatio=True, mask='auto')
+        c.drawImage(str(FIGURES_DIR / "footer_ufz.png"), left_x-10, -30, width=520, preserveAspectRatio=True, mask='auto')
         c.setFont("Helvetica-Bold", 10)
         c.drawCentredString(460, 35, "www.ufz.de")
 

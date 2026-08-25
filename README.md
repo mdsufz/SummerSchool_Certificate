@@ -69,7 +69,7 @@ uv run python certificate.py --grades-file /path/to/grades.tsv --output-dir /pat
 ```
 
 Run `uv run python certificate.py --help` to see all options. The command can be
-run from any directory because bundled logos and the default data file are
+run from any directory because bundled figures and the default data file are
 resolved relative to `certificate.py`.
 
 ## Grade conversion
@@ -82,6 +82,6 @@ changes.
 ## Customize the certificate
 
 Certificate text, course dates, module names, contact details, and layout are in
-`certificate.py`. The PNG files in the repository provide the logos and footer.
+`certificate.py`. The PNG files in `figures/` provide the logos and footer.
 After changing the template, generate a certificate with placeholder data and
 inspect the PDF before processing real participant information.
