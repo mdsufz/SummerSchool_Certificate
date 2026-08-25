@@ -1,1 +1,4 @@
-.venv
+.venv/
+__pycache__/
+certificates/
+grades_translated.xlsx

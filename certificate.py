@@ -1,16 +1,31 @@
+import argparse
+from pathlib import Path
+
+import polars as pl
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-from reportlab.lib import colors
-import polars as pl
-import os
 
-def create_certificate():
-    os.makedirs("certificates", exist_ok=True)
 
-    df_grades = pl.read_csv("grades.tsv", separator='\t')
-    df_grades = df_grades.with_columns(((pl.col("Points") / 20) * 100).alias("Percentage"),
+PROJECT_DIR = Path(__file__).resolve().parent
+DEFAULT_GRADES_FILE = PROJECT_DIR / "grades.tsv"
+DEFAULT_OUTPUT_DIR = PROJECT_DIR / "certificates"
+MAX_POINTS = 30
+
+
+def create_certificates(
+    grades_file: Path = DEFAULT_GRADES_FILE,
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    participant_name: str | None = None,
+    show_grade: bool = True,
+) -> None:
+    """Generate certificates and a translated grade spreadsheet."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    df_grades = pl.read_csv(grades_file, separator="\t")
+    df_grades = df_grades.with_columns(((pl.col("Points") / MAX_POINTS) * 100).alias("Percentage"),
                                         pl.col("Birth")
-                                        .str.strptime(pl.Date)   
+                                        .str.strptime(pl.Date, format="%d/%m/%Y")
                                         .dt.strftime("%d.%m.%Y")               
                                         .alias("Birth"))
     df_grades = df_grades.with_columns([
@@ -43,11 +58,14 @@ def create_certificate():
     ])
 
     df_grades = df_grades.select(["Name", "Birth", "Place", "Points", "German", "Letter", "Percentage"])
-    df_grades.write_excel("grades_translated.xlsx")
+    df_grades.write_excel(output_dir / "grades_translated.xlsx")
 
     for row in df_grades.iter_rows(named=True):
+        if participant_name is not None and row["Name"] != participant_name:
+            continue
         
-        c = canvas.Canvas(os.path.join("certificates", f"certificate_{row['Name'].split(' ')[0]}.pdf"), pagesize=A4)
+        filename = f"certificate_{row['Name'].split()[0]}.pdf"
+        c = canvas.Canvas(str(output_dir / filename), pagesize=A4)
         width, height = A4
 
         # Title section (centered)
@@ -60,7 +78,7 @@ def create_certificate():
             "UFZ Summer School – Trends in multi-omics Data Analysis")
         c.setFont("Helvetica-Bold", 11)
         c.drawCentredString(pos_title, height - 120,
-            "Held in UFZ Leipzig from 7th to 25th of July 2025")
+            "Held in UFZ Leipzig from 13th to 31st of July 2026")
 
         # Left column baseline (x)
         left_x = 60
@@ -94,7 +112,7 @@ def create_certificate():
             "Basic knowledge - R",
             "Basic knowledge - Python",
             "Omics Technologies - Introduction, History",
-            "Proteomics - Basics, Lab Visit, and Hands-on",
+            "Proteomics - Basics, and Hands-on",
             "Viromics - Basics and Hands-on",
             "Amplicon Sequencing - Hands-on",
             "Phylogenetics and Phylogenomics",
@@ -110,7 +128,7 @@ def create_certificate():
             "Connecting Multi-Omics Datasets - Hands-on",
             "Research Data Management - Basics",
             "Designing Experiments",
-            "Protein Language Models"
+            "Alignment-free annotation"
         ]
         for m in modules:
             c.drawString(left_x + 15, y, f"- {m}")
@@ -118,28 +136,34 @@ def create_certificate():
 
         # Grade and ECTS
         y -= 20
-        c.setFont("Helvetica", 11)
-        c.drawString(left_x, y, "With a final exam grade* of:")
-        y -= 40
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(left_x + 110, y + 10, f"{float(row['German']):.1f}/{row['Letter']}/{float(row['Percentage']):.2f}%")
-        c.line(left_x, y, left_x + 300, y)
-        y -= 20
+        if show_grade:
+            c.setFont("Helvetica", 11)
+            c.drawString(left_x, y, "With a final exam grade* of:")
+            y -= 40
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(left_x + 110, y + 10, f"{float(row['German']):.1f}/{row['Letter']}/{float(row['Percentage']):.2f}%")
+            c.line(left_x, y, left_x + 300, y)
+            y -= 20
 
         c.setFont("Helvetica", 12)
-        c.drawString(left_x, y, "Earning ")
+        earning_text = "Earning "
+        c.drawString(left_x, y, earning_text)
 
         # Bold text
         c.setFont("Helvetica-Bold", 12)
-        c.drawString(left_x + 50, y, "5 ETC")
+        ects_x = left_x + c.stringWidth(earning_text, "Helvetica", 12)
+        ects_text = "5 ECTS "
+        c.drawString(ects_x, y, ects_text)
 
         # Back to normal
         c.setFont("Helvetica", 12)
-        c.drawString(left_x + 90, y, " credit points.")
+        credit_x = ects_x + c.stringWidth(ects_text, "Helvetica-Bold", 12)
+        c.drawString(credit_x, y, "credit points/170 hours of study time.")
 
-        c.setFont("Helvetica", 8)
-        c.drawString(left_x, y - 20, "*The grade is shown, respectively, in three equivalent formats: German scale, letter grade, and percentage.")
-        c.drawString(left_x, y - 35, "All refer to the same performance.")
+        if show_grade:
+            c.setFont("Helvetica", 8)
+            c.drawString(left_x, y - 20, "*The grade is shown, respectively, in three equivalent formats: German scale, letter grade, and percentage.")
+            c.drawString(left_x, y - 35, "All refer to the same performance.")
 
         # Signatures section
         y -= 90
@@ -183,13 +207,13 @@ def create_certificate():
             "Commercial register No. B 4703",
             "",
             "Chairman of the Supervisory Board:",
-            "MinR Dr. Wolf Junker",
+            "MinDirig Daniel Rudolf",
             "",
             "Scientific Director:",
             "Prof. Dr. Katrin Böhning-Gaese",
             "",
             "Administrative Director:",
-            "Dr. Sabine König",
+            "Dr. Sabine Matthiä",
             "",
             "Bank details:",
             "HypoVereinsbank Leipzig",
@@ -209,18 +233,50 @@ def create_certificate():
 
         # Logos (placeholders – replace with your image paths)
         # logo_y = 100
-        c.drawImage("ufz.png", right_x + 90, -160, width=220, preserveAspectRatio=True, mask='auto')
-        c.drawImage("nfdi.png", right_x + 150, -90, width=140, preserveAspectRatio=True, mask='auto')
-        c.drawImage("unileipzig.png", right_x + 150, -350, width=150, preserveAspectRatio=True, mask='auto')
-        c.drawImage("quality.png", right_x + 180, -80, width=110, preserveAspectRatio=True, mask='auto')
+        c.drawImage(str(PROJECT_DIR / "ufz.png"), right_x + 90, -160, width=220, preserveAspectRatio=True, mask='auto')
+        c.drawImage(str(PROJECT_DIR / "nfdi.png"), right_x + 150, -90, width=140, preserveAspectRatio=True, mask='auto')
+        c.drawImage(str(PROJECT_DIR / "unileipzig.png"), right_x + 150, -350, width=150, preserveAspectRatio=True, mask='auto')
+        c.drawImage(str(PROJECT_DIR / "quality.png"), right_x + 180, -80, width=110, preserveAspectRatio=True, mask='auto')
         
 
         # Footer bar
-        c.drawImage("footer_ufz.png", left_x-10, -30, width=520, preserveAspectRatio=True, mask='auto')
+        c.drawImage(str(PROJECT_DIR / "footer_ufz.png"), left_x-10, -30, width=520, preserveAspectRatio=True, mask='auto')
         c.setFont("Helvetica-Bold", 10)
         c.drawCentredString(460, 35, "www.ufz.de")
 
         c.save()
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Generate Summer School certificates.")
+    parser.add_argument(
+        "--grades-file",
+        type=Path,
+        default=DEFAULT_GRADES_FILE,
+        help="TSV input file (default: grades.tsv next to this script)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help="Directory for generated files (default: certificates)",
+    )
+    parser.add_argument(
+        "--participant",
+        help="Generate only the participant whose full name exactly matches the TSV",
+    )
+    parser.add_argument(
+        "--hide-grade",
+        action="store_true",
+        help="Omit the final grade from certificates",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    create_certificate()
+    args = parse_args()
+    create_certificates(
+        grades_file=args.grades_file,
+        output_dir=args.output_dir,
+        participant_name=args.participant,
+        show_grade=not args.hide_grade,
+    )
